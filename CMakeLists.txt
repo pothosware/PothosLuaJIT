@@ -41,6 +41,7 @@ set(sources
 
 set(includes
     ${CMAKE_CURRENT_SOURCE_DIR}
+    ${JSON_HPP_INCLUDE_DIR}
     ${LUAJIT_INCLUDE_DIR})
 
 set(libraries
