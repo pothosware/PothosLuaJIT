@@ -35,3 +35,26 @@ endif ()
 ########################################################################
 # Build
 ########################################################################
+set(sources
+    ModuleInfo.cpp
+    )
+
+set(includes
+    ${CMAKE_CURRENT_SOURCE_DIR}
+    ${LUAJIT_INCLUDE_DIR})
+
+set(libraries
+    sol2::sol2
+    ${LUAJIT_LIBRARIES})
+
+include_directories(${includes})
+
+include(PothosUtil)
+POTHOS_MODULE_UTIL(
+    TARGET PothosLuaJIT
+    SOURCES ${sources}
+    LIBRARIES ${libraries}
+    DESTINATION luajit
+)
+
+set_property(TARGET PothosLuaJIT PROPERTY CXX_STANDARD 17)
