@@ -36,6 +36,7 @@ endif ()
 # Build
 ########################################################################
 set(sources
+    LuaJITBlock.cpp
     ModuleInfo.cpp
     )
 
