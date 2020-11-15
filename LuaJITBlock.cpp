@@ -121,6 +121,7 @@ class LuaJITBlock: public Pothos::Block
 
         void setSource(
             const std::string& luaSource,
+            const std::string& moduleName,
             const std::string& functionName);
 
         void work() override;
@@ -165,6 +166,7 @@ LuaJITBlock::LuaJITBlock(
 
 void LuaJITBlock::setSource(
     const std::string& luaSource,
+    const std::string& moduleName,
     const std::string& functionName)
 {
     // If this is a path, import it as a script. Else, take it as a string literal.
@@ -174,13 +176,13 @@ void LuaJITBlock::setSource(
     {
         if(Poco::File(luaSource).exists())
         {
-            _lua["BlockEnv"]["UserEnv"] = _lua.require_file("UserEnv", luaSource);
+            _lua["BlockEnv"]["UserEnv"] = _lua.require_file(moduleName, luaSource);
         }
         else throw Pothos::FileNotFoundException(luaSource);
     }
     else
     {
-        _lua["BlockEnv"]["UserEnv"] = _lua.require_script("UserEnv", luaSource);
+        _lua["BlockEnv"]["UserEnv"] = _lua.require_script(moduleName, luaSource);
     }
 
     // Make sure the given entry point exists and is a function.
