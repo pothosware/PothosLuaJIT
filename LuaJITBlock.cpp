@@ -21,7 +21,7 @@
 static inline Poco::Logger& errorLogger()
 {
     static auto& logger = Poco::Logger::get("PothosLuaJIT");
-    logger.setLevel(Poco::Message::PRIO_ERROR);
+    logger.setLevel(Poco::Message::PRIO_FATAL);
     return logger;
 }
 
@@ -162,6 +162,8 @@ LuaJITBlock::LuaJITBlock(
     {
         this->setupOutput(outputIndex, outputTypes[outputIndex]);
     }
+
+    this->registerCall(this, POTHOS_FCN_TUPLE(LuaJITBlock, setSource));
 }
 
 void LuaJITBlock::setSource(
@@ -189,12 +191,12 @@ void LuaJITBlock::setSource(
     const auto type = _lua["BlockEnv"]["UserEnv"][functionName].get_type();
     if(type == sol::type::lua_nil)
     {
-        throw Pothos::InvalidArgumentException("The given field ("+functionName+")"+" does not exist");
+        throw Pothos::InvalidArgumentException("The given field ("+functionName+")"+" does not exist.");
     }
     else if(type != sol::type::function)
     {
         const auto typeName = sol::type_name(_lua, type);
-        throw Pothos::InvalidArgumentException("The given field ("+functionName+")"+" must be a function. Found "+typeName);
+        throw Pothos::InvalidArgumentException("The given field ("+functionName+")"+" must be a function. Found "+typeName+".");
     }
     else _functionName = functionName;
 

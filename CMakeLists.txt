@@ -38,7 +38,7 @@ endif ()
 set(sources
     LuaJITBlock.cpp
     ModuleInfo.cpp
-    )
+    TestLuaJITBlock.cpp)
 
 set(includes
     ${CMAKE_CURRENT_SOURCE_DIR}
