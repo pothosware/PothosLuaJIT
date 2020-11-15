@@ -8,6 +8,7 @@
 #include <sol/sol.hpp>
 
 #include <Poco/File.h>
+#include <Poco/Logger.h>
 #include <Poco/Path.h>
 
 #include <string>
@@ -16,6 +17,50 @@
 //
 // Utility code
 //
+
+static inline Poco::Logger& errorLogger()
+{
+    static auto& logger = Poco::Logger::get("PothosLuaJIT");
+    logger.setLevel(Poco::Message::PRIO_ERROR);
+    return logger;
+}
+
+static void pothosLuaJITPanic(sol::optional<std::string> maybeMsg)
+{
+    errorLogger().fatal(maybeMsg ? *maybeMsg : "Unknown Lua error");
+}
+
+static int pothosLuaJITExceptionHandler(
+    lua_State *L,
+    sol::optional<const std::exception&> maybeException,
+    sol::string_view description)
+{
+    std::string errorMessage = "Lua caught the following ";
+    if(maybeException)
+    {
+        errorMessage += Pothos::Util::typeInfoToString(typeid(*maybeException));
+        errorMessage + ": ";
+
+        try
+        {
+            const auto& pothosException = dynamic_cast<const Pothos::Exception&>(*maybeException);
+            errorMessage += pothosException.message();
+        }
+        catch(const std::exception&)
+        {
+            errorMessage += maybeException->what();
+        }
+    }
+    else
+    {
+        errorMessage += "error: ";
+        errorMessage += description;
+    }
+
+    errorLogger().error(errorMessage);
+
+    return sol::stack::push(L, errorMessage);
+}
 
 struct LuaJITFcnParams
 {
@@ -102,8 +147,10 @@ LuaJITBlock::LuaJITBlock(
     const std::vector<std::string>& inputTypes,
     const std::vector<std::string>& outputTypes): _lua(), _functionSet(false)
 {
-    // TODO: panic and error handler
     _lua.open_libraries();
+    _lua.set_panic(sol::c_call<decltype(&pothosLuaJITPanic), &pothosLuaJITPanic>);
+    _lua.set_exception_handler(&pothosLuaJITExceptionHandler);
+
     _lua["BlockEnv"] = _lua.require_script("BlockEnv", BlockEnvScript);
 
     for(size_t inputIndex = 0; inputIndex < inputTypes.size(); ++inputIndex)
