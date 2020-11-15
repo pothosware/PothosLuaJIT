@@ -18,7 +18,7 @@ static std::string __getPothosLuaJITInfo()
     lua.open_libraries();
 
     json topObject;
-    topObject["LuaJIT Version"] = lua["jit"]["version"];
+    topObject["LuaJIT Version"] = lua["jit"]["version"].get<std::string>();
 
     return topObject.dump();
 }
