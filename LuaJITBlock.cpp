@@ -21,7 +21,7 @@
 static inline Poco::Logger& errorLogger()
 {
     static auto& logger = Poco::Logger::get("PothosLuaJIT");
-    logger.setLevel(Poco::Message::PRIO_FATAL);
+    logger.setLevel(Poco::Message::PRIO_ERROR);
     return logger;
 }
 
