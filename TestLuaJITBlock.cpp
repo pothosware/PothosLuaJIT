@@ -1,6 +1,7 @@
 // Copyright (c) 2020 Nicholas Corgan
 // SPDX-License-Identifier: MIT
 
+#include <Pothos/Config.hpp>
 #include <Pothos/Framework.hpp>
 #include <Pothos/Proxy.hpp>
 #include <Pothos/Testing.hpp>
@@ -23,7 +24,7 @@
 
 extern "C"
 {
-    void addThreeFloatBuffers(
+    void POTHOS_HELPER_DLL_EXPORT ffiTestThreeFloatBuffers(
         const float* buffIn0,
         const float* buffIn1,
         const float* buffIn2,
@@ -43,7 +44,7 @@ static const std::string TestFuncsScript = R"(
 local ffi = require("ffi")
 ffi.cdef[[
 
-void addThreeFloatBuffers(
+void ffiTestThreeFloatBuffers(
     const float* buffIn0,
     const float* buffIn1,
     const float* buffIn2,
@@ -55,20 +56,26 @@ void addThreeFloatBuffers(
 TestFuncs = {}
 
 function TestFuncs.addFloatsC(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
-    local floatBuffsIn = ffi.cast("float**")
-    local floatBuffsOut = ffi.cast("float**")
+    print(bBuffsIn)
+    print(numBuffsIn)
+    print(buffsOut)
+    print(numBuffsOut)
+    print(elems)
 
-    ffi.C.addThreeFloatBuffers(
-        floatBuffsIn[0],
+    local floatBuffsIn = ffi.cast("float**", buffsIn)
+    local floatBuffsOut = ffi.cast("float**", buffsOut)
+
+    ffi.C.ffiTestThreeFloatBuffers(
         floatBuffsIn[1],
         floatBuffsIn[2],
-        floatBuffsOut[0],
+        floatBuffsIn[3],
+        floatBuffsOut[1],
         elems)
 end
 
 function TestFuncs.addFloatsLua(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
-    local floatBuffsIn = ffi.cast("float**")
-    local floatBuffsOut = ffi.cast("float**")
+    local floatBuffsIn = ffi.cast("float**", buffsIn)
+    local floatBuffsOut = ffi.cast("float**", buffsOut)
 
     for i = 1,elems,1
     do
@@ -125,16 +132,15 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
     // Luajit blocks
     //
 
-    auto addThreeFloatBuffersC = Pothos::BlockRegistry::make(
+    /*auto addThreeFloatBuffersC = Pothos::BlockRegistry::make(
                                     "/blocks/luajit_block",
                                     std::vector<std::string>{"float32", "float32", "float32"},
                                     std::vector<std::string>{"float32"});
     addThreeFloatBuffersC.call(
         "setSource",
         TestFuncsScript,
-        "TestFuncs",
         "addFloatsC");
-    POTHOS_TEST_CHECKPOINT();
+    POTHOS_TEST_CHECKPOINT();*/
 
     auto addThreeFloatBuffersLua = Pothos::BlockRegistry::make(
                                        "/blocks/luajit_block",
@@ -143,7 +149,6 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
     addThreeFloatBuffersLua.call(
         "setSource",
         TestFuncsScript,
-        "TestFuncs",
         "addFloatsLua");
     POTHOS_TEST_CHECKPOINT();
 
@@ -163,11 +168,11 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
 
         for(size_t i = 0; i < numSources; ++i)
         {
-            topology.connect(sources[0], 0, addThreeFloatBuffersC, i);
+            //topology.connect(sources[0], 0, addThreeFloatBuffersC, i);
             topology.connect(sources[0], 0, addThreeFloatBuffersLua, i);
         }
 
-        topology.connect(addThreeFloatBuffersC, 0, sinkThreeBuffersC, 0);
+        //topology.connect(addThreeFloatBuffersC, 0, sinkThreeBuffersC, 0);
         topology.connect(addThreeFloatBuffersLua, 0, sinkThreeBuffersLua, 0);
 
         topology.commit();

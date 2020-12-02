@@ -85,14 +85,16 @@ struct LuaJITFcnParams
 
 BlockEnv = {}
 
-function BlockEnv.handle(msg)
-    return msg
-end
+function BlockEnv.CallBlockFunction(fcn, params)
+    local params_ = ffi.cast("struct LuaJITFcnParams*", params)
 
-function BlockEnv.CallBlockFunction(params, fcn)
-    local params_ = ffi.cast("LuaJitFcnParams*", params)
+    print(params_.inputBuffers)
+    print(params_.numInputs)
+    print(params_.outputBuffers)
+    print(params_.numOutputs)
+    print(params_.elems)
 
-    BlockEnv.BlockFunction(params_.buffsIn, params_.numInputs, params_.buffsOut, params_.numOutputs, params_.elems)
+    BlockEnv.CallBlockFunction(params_.inputBuffers, params_.numInputs, params_.outputBuffers, params_.numOutputs, params_.elems)
 end
 
 return BlockEnv
@@ -117,7 +119,6 @@ class LuaJITBlock: public Pothos::Block
 
         void setSource(
             const std::string& luaSource,
-            const std::string& moduleName,
             const std::string& functionName);
 
         void work() override;
@@ -144,14 +145,8 @@ LuaJITBlock::LuaJITBlock(
     const std::vector<std::string>& inputTypes,
     const std::vector<std::string>& outputTypes): _lua(), _functionSet(false)
 {
-    //safeLuaExecution([&]
-    {
-        _lua.open_libraries();
-        //_lua.set_panic(sol::c_call<decltype(&pothosLuaJITPanic), &pothosLuaJITPanic>);
-        //_lua.set_exception_handler(&pothosLuaJITExceptionHandler);
-
-        _lua["BlockEnv"] = _lua.require_script("BlockEnv", BlockEnvScript);
-    }//);
+    _lua.open_libraries();
+    _lua["BlockEnv"] = safeLuaCall(_lua.load(BlockEnvScript));
 
     for(size_t inputIndex = 0; inputIndex < inputTypes.size(); ++inputIndex)
     {
@@ -167,7 +162,6 @@ LuaJITBlock::LuaJITBlock(
 
 void LuaJITBlock::setSource(
     const std::string& luaSource,
-    const std::string& moduleName,
     const std::string& functionName)
 {
     // If this is a path, import it as a script. Else, take it as a string literal.
@@ -175,10 +169,9 @@ void LuaJITBlock::setSource(
     // *some* reason, the source ends with ".lua".
     if(Poco::Path(luaSource).getExtension() == ".lua")
     {
-        // TODO: safe
         if(Poco::File(luaSource).exists())
         {
-            _lua["BlockEnv"]["UserEnv"] = _lua.require_file(moduleName, luaSource);
+            _lua["BlockEnv"]["UserEnv"] = safeLuaCall(_lua.load_file(luaSource));
         }
         else throw Pothos::FileNotFoundException(luaSource);
     }
@@ -218,17 +211,14 @@ void LuaJITBlock::work()
     auto inputs = this->inputs();
     auto outputs = this->outputs();
 
-    // Using the WorkInfo members gets ugly, so we'll just make our
-    // own vector.
-    std::vector<void*> inputBuffers;
-    std::vector<void*> outputBuffers;
-
-    for(auto* input: inputs)   inputBuffers.emplace_back(input->buffer());
-    for(auto* output: outputs) outputBuffers.emplace_back(output->buffer());
+    // Copying pointers is cheap, and this is easier than dealing with
+    // casting the WorkInfo vectors directly.
+    std::vector<const void*> inputBuffers = workInfo.inputPointers;
+    std::vector<void*> outputBuffers = workInfo.outputPointers;
 
     LuaJITFcnParams params =
     {
-        inputBuffers.data(),
+        const_cast<void**>(inputBuffers.data()),
         inputBuffers.size(),
 
         outputBuffers.data(),
@@ -237,7 +227,12 @@ void LuaJITBlock::work()
         elems
     };
 
-    safeLuaCall(_lua["BlockEnv"]["UserEnv"][_functionName], params);
+    std::cout << params.inputBuffers << " " << params.numInputs << " " << params.outputBuffers << " " << params.numOutputs << " " << params.elems << std::endl;
+
+    safeLuaCall(
+        _lua["BlockEnv"]["CallBlockFunction"],
+        _lua["BlockEnv"]["UserEnv"][_functionName],
+        params);
 
     for(auto* input: inputs) input->consume(elems);
     for(auto* output: outputs) output->produce(elems);
