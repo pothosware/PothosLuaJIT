@@ -1,6 +1,9 @@
 // Copyright (c) 2020 Nicholas Corgan
 // SPDX-License-Identifier: MIT
 
+#define SOL_EXCEPTIONS_SAFE_PROPAGATION 1
+#define SOL_USING_CXX_LUA_JIT 1
+
 #include <Pothos/Exception.hpp>
 #include <Pothos/Framework.hpp>
 
@@ -11,6 +14,8 @@
 #include <Poco/Logger.h>
 #include <Poco/Path.h>
 
+#include <iostream>
+#include <functional>
 #include <string>
 #include <vector>
 
@@ -25,41 +30,28 @@ static inline Poco::Logger& errorLogger()
     return logger;
 }
 
-static void pothosLuaJITPanic(sol::optional<std::string> maybeMsg)
-{
-    errorLogger().fatal(maybeMsg ? *maybeMsg : "Unknown Lua error");
-}
+using Fcn = std::function<void(void)>;
 
-static int pothosLuaJITExceptionHandler(
-    lua_State *L,
-    sol::optional<const std::exception&> maybeException,
-    sol::string_view description)
+template <typename... ArgsType>
+static sol::protected_function_result safeLuaCall(const sol::protected_function& fcn, ArgsType... args)
 {
-    std::string errorMessage = "Lua caught the following ";
-    if(maybeException)
+    sol::protected_function_result pfr;
+
+    try
     {
-        errorMessage += Pothos::Util::typeInfoToString(typeid(*maybeException));
-        errorMessage + ": ";
-
-        try
+        pfr = fcn(args...);
+        if(!pfr.valid())
         {
-            const auto& pothosException = dynamic_cast<const Pothos::Exception&>(*maybeException);
-            errorMessage += pothosException.message();
-        }
-        catch(const std::exception&)
-        {
-            errorMessage += maybeException->what();
+            sol::error err = pfr;
+            throw Pothos::Exception(err.what());
         }
     }
-    else
+    catch(const sol::error& err)
     {
-        errorMessage += "error: ";
-        errorMessage += description;
+        throw Pothos::Exception(err.what());
     }
 
-    errorLogger().error(errorMessage);
-
-    return sol::stack::push(L, errorMessage);
+    return pfr;
 }
 
 struct LuaJITFcnParams
@@ -92,6 +84,10 @@ struct LuaJITFcnParams
 ]]
 
 BlockEnv = {}
+
+function BlockEnv.handle(msg)
+    return msg
+end
 
 function BlockEnv.CallBlockFunction(params, fcn)
     local params_ = ffi.cast("LuaJitFcnParams*", params)
@@ -148,11 +144,14 @@ LuaJITBlock::LuaJITBlock(
     const std::vector<std::string>& inputTypes,
     const std::vector<std::string>& outputTypes): _lua(), _functionSet(false)
 {
-    _lua.open_libraries();
-    _lua.set_panic(sol::c_call<decltype(&pothosLuaJITPanic), &pothosLuaJITPanic>);
-    _lua.set_exception_handler(&pothosLuaJITExceptionHandler);
+    //safeLuaExecution([&]
+    {
+        _lua.open_libraries();
+        //_lua.set_panic(sol::c_call<decltype(&pothosLuaJITPanic), &pothosLuaJITPanic>);
+        //_lua.set_exception_handler(&pothosLuaJITExceptionHandler);
 
-    _lua["BlockEnv"] = _lua.require_script("BlockEnv", BlockEnvScript);
+        _lua["BlockEnv"] = _lua.require_script("BlockEnv", BlockEnvScript);
+    }//);
 
     for(size_t inputIndex = 0; inputIndex < inputTypes.size(); ++inputIndex)
     {
@@ -176,6 +175,7 @@ void LuaJITBlock::setSource(
     // *some* reason, the source ends with ".lua".
     if(Poco::Path(luaSource).getExtension() == ".lua")
     {
+        // TODO: safe
         if(Poco::File(luaSource).exists())
         {
             _lua["BlockEnv"]["UserEnv"] = _lua.require_file(moduleName, luaSource);
@@ -184,7 +184,7 @@ void LuaJITBlock::setSource(
     }
     else
     {
-        _lua["BlockEnv"]["UserEnv"] = _lua.require_script(moduleName, luaSource);
+        _lua["BlockEnv"]["UserEnv"] = safeLuaCall(_lua.load(luaSource));
     }
 
     // Make sure the given entry point exists and is a function.
@@ -237,7 +237,7 @@ void LuaJITBlock::work()
         elems
     };
 
-    _lua["BlockEnv"]["UserEnv"][_functionName](params);
+    safeLuaCall(_lua["BlockEnv"]["UserEnv"][_functionName], params);
 
     for(auto* input: inputs) input->consume(elems);
     for(auto* output: outputs) output->produce(elems);

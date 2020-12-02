@@ -23,7 +23,7 @@
 
 extern "C"
 {
-    void addThreeFloatBuffersC(
+    void addThreeFloatBuffers(
         const float* buffIn0,
         const float* buffIn1,
         const float* buffIn2,
@@ -72,7 +72,7 @@ function TestFuncs.addFloatsLua(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elem
 
     for i = 1,elems,1
     do
-        floatBuffsOut[1][i] = floatBuffsIn[1][i] + floatBuffsIn[2][i] + floatBuffsIn[2][i]
+        floatBuffsOut[1][i] = floatBuffsIn[1][i] + floatBuffsIn[2][i] + floatBuffsIn[3][i]
     end
 end
 
