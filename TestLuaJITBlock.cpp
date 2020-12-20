@@ -85,7 +85,6 @@ return TestFuncs
 // Test code
 //
 
-/*
 static std::string writeToFileAndGetPath(const std::string& str)
 {
     auto tempFilepath = Poco::format(
@@ -100,10 +99,8 @@ static std::string writeToFileAndGetPath(const std::string& str)
 
     return tempFilepath;
 }
-*/
 
-// TODO: test loading from file
-POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
+static void testLuaJITBlock(const std::string& luaSource)
 {
     //
     // Sources
@@ -123,7 +120,7 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
     }
 
     //
-    // Luajit blocks
+    // LuaJIT blocks
     //
 
     auto addThreeFloatBuffersC = Pothos::BlockRegistry::make(
@@ -132,7 +129,7 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
                                     std::vector<std::string>{"float32"});
     addThreeFloatBuffersC.call(
         "setSource",
-        TestFuncsScript,
+        luaSource,
         "addFloatsC");
     POTHOS_TEST_CHECKPOINT();
 
@@ -142,7 +139,7 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
                                        std::vector<std::string>{"float32"});
     addThreeFloatBuffersLua.call(
         "setSource",
-        TestFuncsScript,
+        luaSource,
         "addFloatsLua");
     POTHOS_TEST_CHECKPOINT();
 
@@ -183,4 +180,14 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
         threeBuffersCOutput.as<const float*>(),
         threeBuffersLuaOutput.as<const float*>(),
         threeBuffersCOutput.elements());
+}
+
+POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block_from_file)
+{
+    testLuaJITBlock(writeToFileAndGetPath(TestFuncsScript));
+}
+
+POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block_from_script)
+{
+    testLuaJITBlock(TestFuncsScript);
 }

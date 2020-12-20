@@ -54,23 +54,6 @@ return BlockEnv
 // Utility code
 //
 
-static inline Poco::Logger& errorLogger()
-{
-    static auto& logger = Poco::Logger::get("PothosLuaJIT");
-    logger.setLevel(Poco::Message::PRIO_ERROR);
-    return logger;
-}
-
-// Avoid type-punning
-template <typename InType, typename OutType>
-static inline std::vector<OutType> vectorCast(const std::vector<InType>& vectorIn)
-{
-    static_assert(sizeof(InType) == sizeof(OutType), "sizeof(InType) != sizeof(OutType)");
-    const auto* outTypePtr = reinterpret_cast<const OutType*>(vectorIn.data());
-
-    return std::vector<OutType>(outTypePtr, outTypePtr+vectorIn.size());
-}
-
 template <typename... ArgsType>
 static sol::protected_function_result safeLuaCall(const sol::protected_function& fcn, ArgsType... args)
 {
@@ -202,9 +185,6 @@ void LuaJITBlock::work()
 
     auto inputs = this->inputs();
     auto outputs = this->outputs();
-
-    const auto inputBuffers = vectorCast<const void*, uintptr_t>(workInfo.inputPointers);
-    const auto outputBuffers = vectorCast<void*, uintptr_t>(workInfo.outputPointers);
 
     safeLuaCall(
         _lua["BlockEnv"]["CallBlockFunction"],
