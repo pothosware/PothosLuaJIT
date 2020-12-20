@@ -37,6 +37,7 @@ endif ()
 ########################################################################
 set(sources
     LuaJITBlock.cpp
+    LuaJITConfLoader.cpp
     ModuleInfo.cpp
     TestLuaJITBlock.cpp)
 
