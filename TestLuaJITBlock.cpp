@@ -88,9 +88,8 @@ return TestFuncs
 static std::string writeToFileAndGetPath(const std::string& str)
 {
     auto tempFilepath = Poco::format(
-                            "%s%c%s.lua",
+                            "%s%s.lua",
                             Poco::Path::temp(),
-                            Poco::Path::separator(),
                             Poco::NumberFormatter::format(Poco::Timestamp().epochMicroseconds()));
     Poco::TemporaryFile::registerForDeletion(tempFilepath);
 

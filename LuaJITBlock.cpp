@@ -142,7 +142,7 @@ void LuaJITBlock::setSource(
     // If this is a path, import it as a script. Else, take it as a string literal.
     // The exists() check should theoretically take care of the case where, for
     // *some* reason, the source ends with ".lua".
-    if(Poco::Path(luaSource).getExtension() == ".lua")
+    if(Poco::Path(luaSource).getExtension() == "lua")
     {
         if(Poco::File(luaSource).exists())
         {
