@@ -56,20 +56,14 @@ void ffiTestThreeFloatBuffers(
 TestFuncs = {}
 
 function TestFuncs.addFloatsC(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
-    print(bBuffsIn)
-    print(numBuffsIn)
-    print(buffsOut)
-    print(numBuffsOut)
-    print(elems)
-
     local floatBuffsIn = ffi.cast("float**", buffsIn)
     local floatBuffsOut = ffi.cast("float**", buffsOut)
 
     ffi.C.ffiTestThreeFloatBuffers(
+        floatBuffsIn[0],
         floatBuffsIn[1],
         floatBuffsIn[2],
-        floatBuffsIn[3],
-        floatBuffsOut[1],
+        floatBuffsOut[0],
         elems)
 end
 
@@ -77,9 +71,9 @@ function TestFuncs.addFloatsLua(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elem
     local floatBuffsIn = ffi.cast("float**", buffsIn)
     local floatBuffsOut = ffi.cast("float**", buffsOut)
 
-    for i = 1,elems,1
+    for i = 0,elems-1
     do
-        floatBuffsOut[1][i] = floatBuffsIn[1][i] + floatBuffsIn[2][i] + floatBuffsIn[3][i]
+        floatBuffsOut[0][i] = floatBuffsIn[0][i] + floatBuffsIn[1][i] + floatBuffsIn[2][i]
     end
 end
 
@@ -132,7 +126,7 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
     // Luajit blocks
     //
 
-    /*auto addThreeFloatBuffersC = Pothos::BlockRegistry::make(
+    auto addThreeFloatBuffersC = Pothos::BlockRegistry::make(
                                     "/blocks/luajit_block",
                                     std::vector<std::string>{"float32", "float32", "float32"},
                                     std::vector<std::string>{"float32"});
@@ -140,7 +134,7 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
         "setSource",
         TestFuncsScript,
         "addFloatsC");
-    POTHOS_TEST_CHECKPOINT();*/
+    POTHOS_TEST_CHECKPOINT();
 
     auto addThreeFloatBuffersLua = Pothos::BlockRegistry::make(
                                        "/blocks/luajit_block",
@@ -168,11 +162,11 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_block)
 
         for(size_t i = 0; i < numSources; ++i)
         {
-            //topology.connect(sources[0], 0, addThreeFloatBuffersC, i);
+            topology.connect(sources[0], 0, addThreeFloatBuffersC, i);
             topology.connect(sources[0], 0, addThreeFloatBuffersLua, i);
         }
 
-        //topology.connect(addThreeFloatBuffersC, 0, sinkThreeBuffersC, 0);
+        topology.connect(addThreeFloatBuffersC, 0, sinkThreeBuffersC, 0);
         topology.connect(addThreeFloatBuffersLua, 0, sinkThreeBuffersLua, 0);
 
         topology.commit();

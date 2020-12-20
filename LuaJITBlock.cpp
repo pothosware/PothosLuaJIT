@@ -4,6 +4,7 @@
 #define SOL_EXCEPTIONS_SAFE_PROPAGATION 1
 #define SOL_USING_CXX_LUA_JIT 1
 
+#include <Pothos/Config.hpp>
 #include <Pothos/Exception.hpp>
 #include <Pothos/Framework.hpp>
 
@@ -20,6 +21,36 @@
 #include <vector>
 
 //
+// Embedded Lua
+//
+
+static const std::string BlockEnvScript = R"(
+
+local ffi = require("ffi")
+
+BlockEnv = {}
+
+function BlockEnv.CallBlockFunction(fcn, inputBuffers, outputBuffers, elems)
+    local inputBuffersFFI = ffi.new("void*["..tostring(#inputBuffers).."]")
+    for i = 1,#inputBuffers
+    do
+        inputBuffersFFI[i-1] = inputBuffers[i]
+    end
+
+    local outputBuffersFFI = ffi.new("void*["..tostring(#outputBuffers).."]")
+    for i = 1,#outputBuffers
+    do
+        outputBuffersFFI[i-1] = outputBuffers[i]
+    end
+
+    fcn(inputBuffersFFI, #inputBuffers, outputBuffersFFI, #outputBuffers, elems)
+end
+
+return BlockEnv
+
+)";
+
+//
 // Utility code
 //
 
@@ -30,7 +61,15 @@ static inline Poco::Logger& errorLogger()
     return logger;
 }
 
-using Fcn = std::function<void(void)>;
+// Avoid type-punning
+template <typename InType, typename OutType>
+static inline std::vector<OutType> vectorCast(const std::vector<InType>& vectorIn)
+{
+    static_assert(sizeof(InType) == sizeof(OutType), "sizeof(InType) != sizeof(OutType)");
+    const auto* outTypePtr = reinterpret_cast<const OutType*>(vectorIn.data());
+
+    return std::vector<OutType>(outTypePtr, outTypePtr+vectorIn.size());
+}
 
 template <typename... ArgsType>
 static sol::protected_function_result safeLuaCall(const sol::protected_function& fcn, ArgsType... args)
@@ -53,53 +92,6 @@ static sol::protected_function_result safeLuaCall(const sol::protected_function&
 
     return pfr;
 }
-
-struct LuaJITFcnParams
-{
-    void** inputBuffers;
-    size_t numInputs;
-
-    void** outputBuffers;
-    size_t numOutputs;
-
-    size_t elems;
-};
-
-static const std::string BlockEnvScript = R"(
-
-local ffi = require("ffi")
-ffi.cdef[[
-
-struct LuaJITFcnParams
-{
-    void** inputBuffers;
-    size_t numInputs;
-
-    void** outputBuffers;
-    size_t numOutputs;
-
-    size_t elems;
-};
-
-]]
-
-BlockEnv = {}
-
-function BlockEnv.CallBlockFunction(fcn, params)
-    local params_ = ffi.cast("struct LuaJITFcnParams*", params)
-
-    print(params_.inputBuffers)
-    print(params_.numInputs)
-    print(params_.outputBuffers)
-    print(params_.numOutputs)
-    print(params_.elems)
-
-    BlockEnv.CallBlockFunction(params_.inputBuffers, params_.numInputs, params_.outputBuffers, params_.numOutputs, params_.elems)
-end
-
-return BlockEnv
-
-)";
 
 //
 // Interface
@@ -211,28 +203,15 @@ void LuaJITBlock::work()
     auto inputs = this->inputs();
     auto outputs = this->outputs();
 
-    // Copying pointers is cheap, and this is easier than dealing with
-    // casting the WorkInfo vectors directly.
-    std::vector<const void*> inputBuffers = workInfo.inputPointers;
-    std::vector<void*> outputBuffers = workInfo.outputPointers;
-
-    LuaJITFcnParams params =
-    {
-        const_cast<void**>(inputBuffers.data()),
-        inputBuffers.size(),
-
-        outputBuffers.data(),
-        outputBuffers.size(),
-
-        elems
-    };
-
-    std::cout << params.inputBuffers << " " << params.numInputs << " " << params.outputBuffers << " " << params.numOutputs << " " << params.elems << std::endl;
+    const auto inputBuffers = vectorCast<const void*, uintptr_t>(workInfo.inputPointers);
+    const auto outputBuffers = vectorCast<void*, uintptr_t>(workInfo.outputPointers);
 
     safeLuaCall(
         _lua["BlockEnv"]["CallBlockFunction"],
         _lua["BlockEnv"]["UserEnv"][_functionName],
-        params);
+        workInfo.inputPointers,
+        workInfo.outputPointers,
+        elems);
 
     for(auto* input: inputs) input->consume(elems);
     for(auto* output: outputs) output->produce(elems);
