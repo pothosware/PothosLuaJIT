@@ -4,19 +4,13 @@
 #define SOL_EXCEPTIONS_SAFE_PROPAGATION 1
 #define SOL_USING_CXX_LUA_JIT 1
 
-#include <Pothos/Config.hpp>
-#include <Pothos/Exception.hpp>
-#include <Pothos/Framework.hpp>
+#include "LuaJITBlock.hpp"
 
-#include <lua.hpp>
-#include <sol/sol.hpp>
+#include <Pothos/Exception.hpp>
 
 #include <Poco/File.h>
-#include <Poco/Logger.h>
 #include <Poco/Path.h>
 
-#include <iostream>
-#include <functional>
 #include <string>
 #include <vector>
 
@@ -75,36 +69,6 @@ static sol::protected_function_result safeLuaCall(const sol::protected_function&
 
     return pfr;
 }
-
-//
-// Interface
-//
-
-class LuaJITBlock: public Pothos::Block
-{
-    public:
-        static Pothos::Block* make(
-            const std::vector<std::string>& inputTypes,
-            const std::vector<std::string>& outputTypes);
-
-        LuaJITBlock(
-            const std::vector<std::string>& inputTypes,
-            const std::vector<std::string>& outputTypes);
-        virtual ~LuaJITBlock() = default;
-
-        void setSource(
-            const std::string& luaSource,
-            const std::string& functionName);
-
-        void work() override;
-
-    private:
-        sol::state _lua;
-        sol::protected_function _callBlockFcn;
-        sol::protected_function _blockFcn;
-
-        bool _functionSet;
-};
 
 //
 // Implementation
