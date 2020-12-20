@@ -1,6 +1,8 @@
 // Copyright (c) 2020 Nicholas Corgan
 // SPDX-License-Identifier: MIT
 
+#include "LuaJITBlock.hpp"
+
 #include <Pothos/Callable.hpp>
 #include <Pothos/Exception.hpp>
 #include <Pothos/Framework.hpp>
@@ -42,13 +44,20 @@ static Pothos::Object opaqueLuaJITBlockFactory(
     Pothos::ObjectVector argsVector(args, args+numArgs);
     argsVector.emplace_back(factoryArgs.inputTypes);
     argsVector.emplace_back(factoryArgs.outputTypes);
+    argsVector.emplace_back(false); // Disallow setting the source after construction
 
+    // This backdoor allows us to create the block without allowing the
+    // source to be set post-construction, then use our knowledge of the
+    // block type to call it via the function itself.
     auto callable = blockPlugin.getObject().extract<Pothos::Callable>();
+    callable.unbind(2);
+
     auto luajitBlock = callable.opaqueCall(argsVector.data(), argsVector.size());
 
     luajitBlock.ref<Pothos::Block*>()->setName(factoryArgs.factory);
-    luajitBlock.ref<Pothos::Block*>()->call(
-        "setSource",
+
+    // Pothos::Object::ref() doesn't allow pointer casts.
+    dynamic_cast<LuaJITBlock*>(luajitBlock.ref<Pothos::Block*>())->setSource(
         factoryArgs.sourceFilepath,
         factoryArgs.functionName);
 
@@ -58,11 +67,10 @@ static Pothos::Object opaqueLuaJITBlockFactory(
 static inline std::vector<std::string> stringTokenizerToVector(const Poco::StringTokenizer& tokenizer)
 {
     std::vector<std::string> stdVector;
-    std::transform(
+    std::copy(
         tokenizer.begin(),
         tokenizer.end(),
-        std::back_inserter(stdVector),
-        [](const std::string& str){return str;});
+        std::back_inserter(stdVector));
 
     return stdVector;
 }

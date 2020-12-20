@@ -76,14 +76,16 @@ static sol::protected_function_result safeLuaCall(const sol::protected_function&
 
 Pothos::Block* LuaJITBlock::make(
     const std::vector<std::string>& inputTypes,
-    const std::vector<std::string>& outputTypes)
+    const std::vector<std::string>& outputTypes,
+    bool exposeSetSource)
 {
-    return new LuaJITBlock(inputTypes, outputTypes);
+    return new LuaJITBlock(inputTypes, outputTypes, exposeSetSource);
 }
 
 LuaJITBlock::LuaJITBlock(
     const std::vector<std::string>& inputTypes,
-    const std::vector<std::string>& outputTypes): _lua(), _functionSet(false)
+    const std::vector<std::string>& outputTypes,
+    bool exposeSetSource): _lua(), _functionSet(false)
 {
     _lua.open_libraries();
     _lua["BlockEnv"] = safeLuaCall(_lua.load(BlockEnvScript));
@@ -98,7 +100,7 @@ LuaJITBlock::LuaJITBlock(
         this->setupOutput(outputIndex, outputTypes[outputIndex]);
     }
 
-    this->registerCall(this, POTHOS_FCN_TUPLE(LuaJITBlock, setSource));
+    if(exposeSetSource) this->registerCall(this, POTHOS_FCN_TUPLE(LuaJITBlock, setSource));
 }
 
 void LuaJITBlock::setSource(
@@ -171,4 +173,5 @@ void LuaJITBlock::work()
 
 static Pothos::BlockRegistry registerLuaJITBlock(
     "/blocks/luajit_block",
-    &LuaJITBlock::make);
+    Pothos::Callable(&LuaJITBlock::make)
+        .bind<bool>(true, 2));

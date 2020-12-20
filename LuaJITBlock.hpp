@@ -16,11 +16,13 @@ class LuaJITBlock: public Pothos::Block
     public:
         static Pothos::Block* make(
             const std::vector<std::string>& inputTypes,
-            const std::vector<std::string>& outputTypes);
+            const std::vector<std::string>& outputTypes,
+            bool exposeSetSource);
 
         LuaJITBlock(
             const std::vector<std::string>& inputTypes,
-            const std::vector<std::string>& outputTypes);
+            const std::vector<std::string>& outputTypes,
+            bool exposeSetSource);
         virtual ~LuaJITBlock() = default;
 
         void setSource(
