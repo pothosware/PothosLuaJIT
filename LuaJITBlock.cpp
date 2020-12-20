@@ -100,8 +100,9 @@ class LuaJITBlock: public Pothos::Block
 
     private:
         sol::state _lua;
+        sol::protected_function _callBlockFcn;
+        sol::protected_function _blockFcn;
 
-        std::string _functionName;
         bool _functionSet;
 };
 
@@ -122,6 +123,7 @@ LuaJITBlock::LuaJITBlock(
 {
     _lua.open_libraries();
     _lua["BlockEnv"] = safeLuaCall(_lua.load(BlockEnvScript));
+    _callBlockFcn = _lua["BlockEnv"]["CallBlockFunction"];
 
     for(size_t inputIndex = 0; inputIndex < inputTypes.size(); ++inputIndex)
     {
@@ -156,17 +158,19 @@ void LuaJITBlock::setSource(
     }
 
     // Make sure the given entry point exists and is a function.
-    const auto type = _lua["BlockEnv"]["UserEnv"][functionName].get_type();
-    if(type == sol::type::lua_nil)
+    sol::optional<sol::object> maybeFunc = _lua["BlockEnv"]["UserEnv"][functionName];
+    if(!maybeFunc)
     {
         throw Pothos::InvalidArgumentException("The given field ("+functionName+")"+" does not exist.");
     }
-    else if(type != sol::type::function)
+
+    const auto type = (*maybeFunc).get_type();
+    if(type != sol::type::function)
     {
         const auto typeName = sol::type_name(_lua, type);
         throw Pothos::InvalidArgumentException("The given field ("+functionName+")"+" must be a function. Found "+typeName+".");
     }
-    else _functionName = functionName;
+    else _blockFcn = (*maybeFunc);
 
     _functionSet = true;
 }
@@ -187,8 +191,8 @@ void LuaJITBlock::work()
     auto outputs = this->outputs();
 
     safeLuaCall(
-        _lua["BlockEnv"]["CallBlockFunction"],
-        _lua["BlockEnv"]["UserEnv"][_functionName],
+        _callBlockFcn,
+        _blockFcn,
         workInfo.inputPointers,
         workInfo.outputPointers,
         elems);
