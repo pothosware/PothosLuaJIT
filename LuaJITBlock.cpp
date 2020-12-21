@@ -177,6 +177,38 @@ void LuaJITBlock::work()
 // Registration
 //
 
+/***********************************************************************
+ * |PothosDoc LuaJIT Block
+ *
+ * The LuaJIT Block takes in a LuaJIT table (via script or source file)
+ * containing a function to execute. This function operates directly on
+ * the block's Pothos-allocated buffers.
+ *
+ * |category /Blocks
+ * |category /LuaJIT
+ * |keywords lua jit ffi interop
+ *
+ * |param inputTypes[Input Types] An array of input port types.
+ * |unit bytes
+ * |default ["float32"]
+ *
+ * |param outputTypes[Output Types] An array of output port types.
+ * |unit bytes
+ * |default ["float32"]
+ *
+ * |param source[LuaJIT Source] Source code containing the function to execute.
+ * The source can either be a string returning the source code or a
+ * path to a .lua file containing this source code.
+ * |default ""
+ * |widget FileEntry(mode=open)
+ *
+ * |param functionName[Function] The name of a function in the given source.
+ * |default ""
+ * |widget StringEntry()
+ *
+ * |factory /blocks/luajit_block(inputTypes,outputTypes)
+ * |setter setSource(source, functionName)
+ */
 static Pothos::BlockRegistry registerLuaJITBlock(
     "/blocks/luajit_block",
     Pothos::Callable(&LuaJITBlock::make)

@@ -49,9 +49,10 @@ include_directories(${includes})
 include(PothosUtil)
 POTHOS_MODULE_UTIL(
     TARGET PothosLuaJIT
+    ENABLE_DOCS ON
     SOURCES ${sources}
     LIBRARIES ${libraries}
-    DESTINATION luajit
+    DESTINATION blocks/luajit
 )
 set_target_properties(PothosLuaJIT
     PROPERTIES
