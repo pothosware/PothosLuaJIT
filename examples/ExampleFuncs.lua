@@ -69,7 +69,7 @@ in two buffers.
 |category /LuaJIT/Examples
 |keywords example ffi
 
-|factory /luajit/examples/hypotenuse()
+|factory /luajit/examples/hypot()
 */
 --]]
 function ExampleFuncs.hypot(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
