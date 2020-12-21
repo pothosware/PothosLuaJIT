@@ -13,27 +13,18 @@ list(INSERT CMAKE_MODULE_PATH 0 ${CMAKE_SOURCE_DIR}/cmake/Modules)
 ########################################################################
 find_package(LuaJIT)
 find_package(sol2) # Lua wrapper
+find_path(JSON_HPP_INCLUDE_DIR NAMES json.hpp PATH_SUFFIXES nlohmann)
 
 ########################################################################
 ## Feature registration
 ########################################################################
 include(FeatureSummary)
 include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_LUAJIT "Enable Pothos Blocks component" ON "Pothos_FOUND;LUAJIT_FOUND;sol2_FOUND" OFF)
+cmake_dependent_option(ENABLE_LUAJIT "Enable Pothos Blocks component" ON "Pothos_FOUND;LUAJIT_FOUND;sol2_FOUND;JSON_HPP_INCLUDE_DIR" OFF)
 add_feature_info(LuaJIT ENABLE_LUAJIT "A Pothos toolkit that calls into LuaJIT code")
 if(NOT ENABLE_LUAJIT)
     return()
 endif()
-
-########################################################################
-# json.hpp header
-########################################################################
-find_path(JSON_HPP_INCLUDE_DIR NAMES json.hpp PATH_SUFFIXES nlohmann)
-
-if (NOT JSON_HPP_INCLUDE_DIR)
-    message(STATUS "Pothos LuaJIT toolkit requires json.hpp. Exiting...")
-    return()
-endif ()
 
 ########################################################################
 # Build
@@ -62,5 +53,7 @@ POTHOS_MODULE_UTIL(
     LIBRARIES ${libraries}
     DESTINATION luajit
 )
-
-set_property(TARGET PothosLuaJIT PROPERTY CXX_STANDARD 17)
+set_target_properties(PothosLuaJIT
+    PROPERTIES
+        CXX_STANDARD 17
+        CXX_STANDARD_REQUIRED ON)
