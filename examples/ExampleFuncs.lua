@@ -32,7 +32,7 @@ function ExampleFuncs.cube(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
     -- Unlike stock Lua, LuaJIT buffers are 0-indexed.
     for i = 0, elems-1
     do
-        doubleBuffOut[elem] = ffi.C.pow(doubleBuffIn[elem], 3.0)
+        doubleBuffOut[i] = ffi.C.pow(doubleBuffIn[i], 3.0)
     end
 end
 
@@ -55,7 +55,7 @@ function ExampleFuncs.sqrt(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
     -- Unlike stock Lua, LuaJIT buffers are 0-indexed.
     for i = 0, elems-1
     do
-        doubleBuffOut[elem] = ffi.C.sqrt(doubleBuffIn[elem])
+        doubleBuffOut[i] = ffi.C.sqrt(doubleBuffIn[i])
     end
 end
 
@@ -79,7 +79,7 @@ function ExampleFuncs.hypot(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
     -- Unlike stock Lua, LuaJIT buffers are 0-indexed.
     for i = 0, elems-1
     do
-        doubleBuffOut[elem] = ffi.C.hypot(doubleBuffsIn[0][elem], doubleBuffsIn[1][elem])
+        doubleBuffOut[i] = ffi.C.hypot(doubleBuffsIn[0][i], doubleBuffsIn[1][i])
     end
 end
 
