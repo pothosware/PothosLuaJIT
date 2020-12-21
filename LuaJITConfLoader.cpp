@@ -47,7 +47,7 @@ static Pothos::Object opaqueLuaJITBlockFactory(
     argsVector.emplace_back(false); // Disallow setting the source after construction
 
     // This backdoor allows us to create the block without allowing the
-    // source to be set post-construction, then use our knowledge of the
+    // source to be set post-construction, then use our access to the
     // block type to call it via the function itself.
     auto callable = blockPlugin.getObject().extract<Pothos::Callable>();
     callable.unbind(2);
@@ -64,7 +64,7 @@ static Pothos::Object opaqueLuaJITBlockFactory(
     return luajitBlock;
 }
 
-static inline std::vector<std::string> stringTokenizerToVector(const Poco::StringTokenizer& tokenizer)
+static std::vector<std::string> stringTokenizerToVector(const Poco::StringTokenizer& tokenizer)
 {
     std::vector<std::string> stdVector;
     std::copy(
@@ -94,7 +94,7 @@ static std::vector<Pothos::PluginPath> LuaJITConfLoader(const std::map<std::stri
     auto factoryIter = config.find("factory");
     if(factoryIter != config.end())
     {
-        // This will throw if the plugin path is invalid.
+        // This will throw if the plugin path syntax is invalid.
         factoryArgs.factory = Pothos::PluginPath(factoryIter->second).toString();
     }
     else throw Pothos::Exception("No factory");
