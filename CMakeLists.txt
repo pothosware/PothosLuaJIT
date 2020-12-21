@@ -20,7 +20,7 @@ find_path(JSON_HPP_INCLUDE_DIR NAMES json.hpp PATH_SUFFIXES nlohmann)
 ########################################################################
 include(FeatureSummary)
 include(CMakeDependentOption)
-cmake_dependent_option(ENABLE_LUAJIT "Enable Pothos Blocks component" ON "Pothos_FOUND;LUAJIT_FOUND;sol2_FOUND;JSON_HPP_INCLUDE_DIR" OFF)
+cmake_dependent_option(ENABLE_LUAJIT "Enable Pothos LuaJIT component" ON "Pothos_FOUND;LUAJIT_FOUND;sol2_FOUND;JSON_HPP_INCLUDE_DIR" OFF)
 add_feature_info(LuaJIT ENABLE_LUAJIT "A Pothos toolkit that calls into LuaJIT code")
 if(NOT ENABLE_LUAJIT)
     return()
