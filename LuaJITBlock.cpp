@@ -25,15 +25,21 @@ local ffi = require("ffi")
 BlockEnv = {}
 
 function BlockEnv.CallBlockFunction(fcn, inputBuffers, outputBuffers, elems)
-    local inputBuffersFFI = ffi.new("void*["..tostring(#inputBuffers).."]")
+    -- Copy pointers to FFI buffers so the block function can cast them
+    -- as needed.
+    local inputBuffersFFI = ffi.new("void*[?]", #inputBuffers)
     for i = 1,#inputBuffers
     do
+        -- LuaJIT buffers are 0-indexed.
         inputBuffersFFI[i-1] = inputBuffers[i]
     end
 
-    local outputBuffersFFI = ffi.new("void*["..tostring(#outputBuffers).."]")
+    -- Copy pointers to FFI buffers so the block function can cast them
+    -- as needed.
+    local outputBuffersFFI = ffi.new("void*[?]", #outputBuffers)
     for i = 1,#outputBuffers
     do
+        -- LuaJIT buffers are 0-indexed.
         outputBuffersFFI[i-1] = outputBuffers[i]
     end
 

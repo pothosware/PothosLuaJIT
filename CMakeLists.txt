@@ -21,6 +21,9 @@ include(FeatureSummary)
 include(CMakeDependentOption)
 cmake_dependent_option(ENABLE_LUAJIT "Enable Pothos Blocks component" ON "Pothos_FOUND;LUAJIT_FOUND;sol2_FOUND" OFF)
 add_feature_info(LuaJIT ENABLE_LUAJIT "A Pothos toolkit that calls into LuaJIT code")
+if(NOT ENABLE_LUAJIT)
+    return()
+endif()
 
 ########################################################################
 # json.hpp header
@@ -28,7 +31,7 @@ add_feature_info(LuaJIT ENABLE_LUAJIT "A Pothos toolkit that calls into LuaJIT c
 find_path(JSON_HPP_INCLUDE_DIR NAMES json.hpp PATH_SUFFIXES nlohmann)
 
 if (NOT JSON_HPP_INCLUDE_DIR)
-    message(STATUS "Pothos GPU toolkit requires json.hpp. Exiting...")
+    message(STATUS "Pothos LuaJIT toolkit requires json.hpp. Exiting...")
     return()
 endif ()
 
