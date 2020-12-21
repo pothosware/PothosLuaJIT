@@ -2,7 +2,7 @@
 # Project setup
 ########################################################################
 cmake_minimum_required(VERSION 3.3)
-project(PothosLua CXX)
+project(PothosLuaJIT CXX)
 
 find_package(Pothos 0.7 CONFIG REQUIRED)
 
