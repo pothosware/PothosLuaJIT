@@ -184,7 +184,6 @@ void LuaJITBlock::work()
  * containing a function to execute. This function operates directly on
  * the block's Pothos-allocated buffers.
  *
- * |category /Blocks
  * |category /LuaJIT
  * |keywords lua jit ffi interop
  *
