@@ -17,7 +17,7 @@ ExampleFuncs = {}
 /*
 |PothosDoc Cube (LuaJIT)
 
-An basic example block that uses LuaJIT to find the cube of all inputs.
+A basic example block that uses LuaJIT to find the cube of all inputs.
 
 |category /LuaJIT/Examples
 |keywords example ffi
@@ -40,7 +40,7 @@ end
 /*
 |PothosDoc Square Root (LuaJIT)
 
-An basic example block that uses LuaJIT to find the square root of all inputs.
+A basic example block that uses LuaJIT to find the square root of all inputs.
 
 |category /LuaJIT/Examples
 |keywords example ffi
@@ -63,7 +63,7 @@ end
 /*
 |PothosDoc Hypotenuse (LuaJIT)
 
-An basic example block that uses LuaJIT to find the hypotenuse of all inputs
+A basic example block that uses LuaJIT to find the hypotenuse of all inputs
 in two buffers.
 
 |category /LuaJIT/Examples
