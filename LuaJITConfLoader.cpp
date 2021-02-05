@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Nicholas Corgan
+// Copyright (c) 2020-2021 Nicholas Corgan
 // SPDX-License-Identifier: MIT
 
 #include "LuaJITBlock.hpp"
@@ -60,6 +60,8 @@ static Pothos::Object opaqueLuaJITBlockFactory(
     dynamic_cast<LuaJITBlock*>(luajitBlock.ref<Pothos::Block*>())->setSource(
         factoryArgs.sourceFilepath,
         factoryArgs.functionName);
+
+    // TODO: set preloaded libraries
 
     return luajitBlock;
 }

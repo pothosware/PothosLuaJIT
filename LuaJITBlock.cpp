@@ -1,4 +1,4 @@
-// Copyright (c) 2020 Nicholas Corgan
+// Copyright (c) 2020-2021 Nicholas Corgan
 // SPDX-License-Identifier: MIT
 
 #define SOL_EXCEPTIONS_SAFE_PROPAGATION 1
@@ -11,6 +11,7 @@
 #include <Poco/File.h>
 #include <Poco/Path.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -83,15 +84,15 @@ static sol::protected_function_result safeLuaCall(const sol::protected_function&
 Pothos::Block* LuaJITBlock::make(
     const std::vector<std::string>& inputTypes,
     const std::vector<std::string>& outputTypes,
-    bool exposeSetSource)
+    bool exposeSetters)
 {
-    return new LuaJITBlock(inputTypes, outputTypes, exposeSetSource);
+    return new LuaJITBlock(inputTypes, outputTypes, exposeSetters);
 }
 
 LuaJITBlock::LuaJITBlock(
     const std::vector<std::string>& inputTypes,
     const std::vector<std::string>& outputTypes,
-    bool exposeSetSource): _lua(), _functionSet(false)
+    bool exposeSetters): _lua(), _functionSet(false)
 {
     _lua.open_libraries();
     _lua["BlockEnv"] = safeLuaCall(_lua.load(BlockEnvScript));
@@ -106,13 +107,22 @@ LuaJITBlock::LuaJITBlock(
         this->setupOutput(outputIndex, outputTypes[outputIndex]);
     }
 
-    if(exposeSetSource) this->registerCall(this, POTHOS_FCN_TUPLE(LuaJITBlock, setSource));
+    if(exposeSetters)
+    {
+        this->registerCall(this, POTHOS_FCN_TUPLE(LuaJITBlock, setSource));
+        this->registerCall(this, POTHOS_FCN_TUPLE(LuaJITBlock, setPreloadedLibraries));
+    }
 }
 
 void LuaJITBlock::setSource(
     const std::string& luaSource,
     const std::string& functionName)
 {
+    if(this->isActive())
+    {
+        throw Pothos::RuntimeException("Cannot set source for active block.");
+    }
+
     // If this is a path, import it as a script. Else, take it as a string literal.
     // The exists() check should theoretically take care of the case where, for
     // *some* reason, the source ends with ".lua".
@@ -145,6 +155,31 @@ void LuaJITBlock::setSource(
     else _blockFcn = (*maybeFunc);
 
     _functionSet = true;
+}
+
+void LuaJITBlock::setPreloadedLibraries(const std::vector<std::string>& libraries)
+{
+    if(this->isActive())
+    {
+        throw Pothos::RuntimeException("Cannot set preloaded libraries for active block.");
+    }
+
+    _dynLibs.clear();
+    _dynLibPaths = libraries;
+}
+
+void LuaJITBlock::activate()
+{
+    std::transform(
+        _dynLibPaths.begin(),
+        _dynLibPaths.end(),
+        std::back_inserter(_dynLibs),
+        ScopedDynLib::load);
+}
+
+void LuaJITBlock::deactivate()
+{
+    _dynLibs.clear();
 }
 
 void LuaJITBlock::work()
