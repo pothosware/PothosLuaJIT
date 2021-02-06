@@ -17,9 +17,9 @@
 #include <Poco/Timestamp.h>
 
 #include <algorithm>
+#include <cmath>
 #include <complex>
 #include <fstream>
-#include <math.h> // Use C functions in LuaJIT-exposed functions
 #include <string>
 #include <vector>
 
@@ -42,36 +42,6 @@ static Pothos::BufferChunk getRandomInputs()
     }
 
     return output;
-}
-
-static void getCAndLuaPothosBlocks(
-    const std::string& luaSource,
-    const std::string& cBlockFunc,
-    const std::string& luaBlockFunc,
-    const std::vector<std::string>& inputTypes,
-    const std::vector<std::string>& outputTypes,
-    Pothos::Proxy* cFuncBlockOut,
-    Pothos::Proxy* luaFuncBlockOut)
-{
-    (*cFuncBlockOut) = Pothos::BlockRegistry::make(
-                           "/blocks/luajit_block",
-                           inputTypes,
-                           outputTypes);
-    cFuncBlockOut->call(
-        "setSource",
-        luaSource,
-        cBlockFunc);
-    POTHOS_TEST_CHECKPOINT();
-
-    (*luaFuncBlockOut) = Pothos::BlockRegistry::make(
-                             "/blocks/luajit_block",
-                             inputTypes,
-                             outputTypes);
-    luaFuncBlockOut->call(
-        "setSource",
-        luaSource,
-        luaBlockFunc);
-    POTHOS_TEST_CHECKPOINT();
 }
 
 //
@@ -160,7 +130,7 @@ void PothosLuaJIT_TestComplexConjugate(
 
 TestFuncs = {}
 
-function TestFuncs.addFloatsC(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
+function TestFuncs.addFloats(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
     local floatBuffsIn = ffi.cast("float**", buffsIn)
     local floatBuffsOut = ffi.cast("float**", buffsOut)
 
@@ -172,17 +142,7 @@ function TestFuncs.addFloatsC(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
         elems)
 end
 
-function TestFuncs.addFloatsLua(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
-    local floatBuffsIn = ffi.cast("float**", buffsIn)
-    local floatBuffsOut = ffi.cast("float**", buffsOut)
-
-    for i = 0, elems-1
-    do
-        floatBuffsOut[0][i] = floatBuffsIn[0][i] + floatBuffsIn[1][i] + floatBuffsIn[2][i]
-    end
-end
-
-function TestFuncs.combineComplexC(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
+function TestFuncs.combineComplex(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
     local floatBuffsIn = ffi.cast("float**", buffsIn)
     local complexBuffOut = ffi.cast("struct PothosLuaJIT_Complex*", buffsOut[0])
 
@@ -193,18 +153,7 @@ function TestFuncs.combineComplexC(buffsIn, numBuffsIn, buffsOut, numBuffsOut, e
         elems)
 end
 
-function TestFuncs.combineComplexLua(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
-    local floatBuffsIn = ffi.cast("float**", buffsIn)
-    local complexBuffOut = ffi.cast("struct PothosLuaJIT_Complex*", buffsOut[0])
-
-    for i = 0, elems-1
-    do
-        complexBuffOut[i].real = floatBuffsIn[0][i]
-        complexBuffOut[i].imag = floatBuffsIn[1][i]
-    end
-end
-
-function TestFuncs.complexConjugateC(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
+function TestFuncs.complexConjugate(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
     local complexBuffIn = ffi.cast("struct PothosLuaJIT_Complex*", buffsIn[0])
     local complexBuffOut = ffi.cast("struct PothosLuaJIT_Complex*", buffsOut[0])
 
@@ -212,17 +161,6 @@ function TestFuncs.complexConjugateC(buffsIn, numBuffsIn, buffsOut, numBuffsOut,
         complexBuffIn,
         complexBuffOut,
         elems)
-end
-
-function TestFuncs.complexConjugateLua(buffsIn, numBuffsIn, buffsOut, numBuffsOut, elems)
-    local complexBuffIn = ffi.cast("struct PothosLuaJIT_Complex*", buffsIn[0])
-    local complexBuffOut = ffi.cast("struct PothosLuaJIT_Complex*", buffsOut[0])
-
-    for i = 0, elems-1
-    do
-        complexBuffOut[i].real = complexBuffIn[i].real
-        complexBuffOut[i].imag = -complexBuffIn[i].imag
-    end
 end
 
 return TestFuncs
@@ -253,68 +191,82 @@ static std::string writeToFileAndGetPath(
 static void testLuaJITBlocks(const std::string& luaSource)
 {
     //
+    // Generate inputs and expected outputs
+    //
+
+    constexpr size_t numSources = 3;
+    std::vector<Pothos::BufferChunk> inputs(numSources);
+    for(size_t i = 0; i < numSources; ++i)
+    {
+        inputs[i] = getRandomInputs();
+    }
+
+    Pothos::BufferChunk expectedAddFloatsOutput("float32", numElements);
+    Pothos::BufferChunk expectedComplexConjugateOutput("complex_float32", numElements);
+    for(size_t elem = 0; elem < numElements; ++elem)
+    {
+        expectedAddFloatsOutput.as<float*>()[elem] =
+            inputs[0].as<const float*>()[elem] +
+            inputs[1].as<const float*>()[elem] +
+            inputs[2].as<const float*>()[elem];
+
+        expectedComplexConjugateOutput.as<std::complex<float>*>()[elem] = std::conj(
+            std::complex<float>(
+                inputs[0].as<const float*>()[elem],
+                inputs[1].as<const float*>()[elem]));
+    }
+
+    //
     // Sources
     //
 
-    nlohmann::json testPlan;
-    testPlan["enableBuffers"] = true;
-    testPlan["minValue"] = -100;
-    testPlan["maxValue"] = 100;
-
-    constexpr size_t numSources = 3;
-    std::vector<Pothos::Proxy> sources;
+    std::vector<Pothos::Proxy> sources(numSources);
     for(size_t i = 0; i < numSources; ++i)
     {
-        sources.emplace_back(Pothos::BlockRegistry::make("/blocks/feeder_source", "float32"));
-        sources.back().call("feedTestPlan", testPlan.dump());
+        sources[i] = Pothos::BlockRegistry::make("/blocks/feeder_source", "float32");
+        sources[i].call("feedBuffer", inputs[i]);
     }
 
     //
     // LuaJIT blocks
     //
 
-    Pothos::Proxy addThreeFloatBuffersC;
-    Pothos::Proxy addThreeFloatBuffersLua;
-    getCAndLuaPothosBlocks(
+    auto luajitAddFloats = Pothos::BlockRegistry::make(
+                               "/blocks/luajit_block",
+                               std::vector<std::string>{"float32", "float32", "float32"},
+                               std::vector<std::string>{"float32"});
+    luajitAddFloats.call(
+        "setSource",
         luaSource,
-        "addFloatsC",
-        "addFloatsLua",
-        std::vector<std::string>{"float32", "float32", "float32"},
-        std::vector<std::string>{"float32"},
-        &addThreeFloatBuffersC,
-        &addThreeFloatBuffersLua);
+        "addFloats");
+    POTHOS_TEST_CHECKPOINT();
 
-    Pothos::Proxy combineComplexC;
-    Pothos::Proxy combineComplexLua;
-    getCAndLuaPothosBlocks(
+    auto luajitCombineComplex = Pothos::BlockRegistry::make(
+                                    "/blocks/luajit_block",
+                                    std::vector<std::string>{"float32", "float32"},
+                                    std::vector<std::string>{"complex_float32"});
+    luajitCombineComplex.call(
+        "setSource",
         luaSource,
-        "combineComplexC",
-        "combineComplexLua",
-        std::vector<std::string>{"float32", "float32"},
-        std::vector<std::string>{"complex_float32"},
-        &combineComplexC,
-        &combineComplexLua);
+        "combineComplex");
+    POTHOS_TEST_CHECKPOINT();
 
-    Pothos::Proxy complexConjugateC;
-    Pothos::Proxy complexConjugateLua;
-    getCAndLuaPothosBlocks(
+    auto luajitComplexConjugate = Pothos::BlockRegistry::make(
+                                      "/blocks/luajit_block",
+                                      std::vector<std::string>{"complex_float32"},
+                                      std::vector<std::string>{"complex_float32"});
+    luajitComplexConjugate.call(
+        "setSource",
         luaSource,
-        "complexConjugateC",
-        "complexConjugateLua",
-        std::vector<std::string>{"complex_float32"},
-        std::vector<std::string>{"complex_float32"},
-        &complexConjugateC,
-        &complexConjugateLua);
+        "complexConjugate");
+    POTHOS_TEST_CHECKPOINT();
 
     //
     // Sinks
     //
 
-    auto sinkAddThreeBuffersC = Pothos::BlockRegistry::make("/blocks/collector_sink", "float32");
-    auto sinkAddThreeBuffersLua = Pothos::BlockRegistry::make("/blocks/collector_sink", "float32");
-
-    auto sinkComplexConjugateC = Pothos::BlockRegistry::make("/blocks/collector_sink", "complex_float32");
-    auto sinkComplexConjugateLua = Pothos::BlockRegistry::make("/blocks/collector_sink", "complex_float32");
+    auto addFloatsSink = Pothos::BlockRegistry::make("/blocks/collector_sink", "float32");
+    auto complexConjugateSink = Pothos::BlockRegistry::make("/blocks/collector_sink", "complex_float32");
 
     //
     // Run topology
@@ -325,61 +277,57 @@ static void testLuaJITBlocks(const std::string& luaSource)
 
         for(size_t i = 0; i < numSources; ++i)
         {
-            topology.connect(sources[i], 0, addThreeFloatBuffersC, i);
-            topology.connect(sources[i], 0, addThreeFloatBuffersLua, i);
+            topology.connect(sources[i], 0, luajitAddFloats, i);
         }
         for(size_t i = 0; i < 2; ++i)
         {
-            topology.connect(sources[i], 0, combineComplexC, i);
-            topology.connect(sources[i], 0, combineComplexLua, i);
+            topology.connect(sources[i], 0, luajitCombineComplex, i);
         }
 
-        topology.connect(combineComplexC, 0, complexConjugateC, 0);
-        topology.connect(combineComplexLua, 0, complexConjugateLua, 0);
+        topology.connect(
+            luajitAddFloats,
+            0,
+            addFloatsSink,
+            0);
 
-        topology.connect(addThreeFloatBuffersC, 0, sinkAddThreeBuffersC, 0);
-        topology.connect(addThreeFloatBuffersLua, 0, sinkAddThreeBuffersLua, 0);
-
-        topology.connect(complexConjugateC, 0, sinkComplexConjugateC, 0);
-        topology.connect(complexConjugateLua, 0, sinkComplexConjugateLua, 0);
+        topology.connect(
+            luajitCombineComplex,
+            0,
+            luajitComplexConjugate,
+            0);
+        topology.connect(
+            luajitComplexConjugate,
+            0,
+            complexConjugateSink,
+            0);
 
         topology.commit();
         POTHOS_TEST_TRUE(topology.waitInactive(0.01));
     }
 
-    auto threeBuffersCOutput = sinkAddThreeBuffersC.call<Pothos::BufferChunk>("getBuffer");
-    auto threeBuffersLuaOutput = sinkAddThreeBuffersLua.call<Pothos::BufferChunk>("getBuffer");
-    auto complexConjugateCOutput = sinkComplexConjugateC.call<Pothos::BufferChunk>("getBuffer");
-    auto complexConjugateLuaOutput = sinkComplexConjugateLua.call<Pothos::BufferChunk>("getBuffer");
+    //
+    // Test against expected output
+    //
 
-    constexpr float epsilon = 1e-3f;
+    constexpr float epsilon = 1e-6f;
 
-    POTHOS_TEST_GT(threeBuffersCOutput.elements(), 0ULL);
-    POTHOS_TEST_EQUAL(threeBuffersCOutput.dtype, threeBuffersLuaOutput.dtype);
-    POTHOS_TEST_EQUAL(threeBuffersCOutput.elements(), threeBuffersLuaOutput.elements());
+    auto addFloatsOutput = addFloatsSink.call<Pothos::BufferChunk>("getBuffer");
+    POTHOS_TEST_EQUAL(expectedAddFloatsOutput.dtype, addFloatsOutput.dtype);
+    POTHOS_TEST_EQUAL(expectedAddFloatsOutput.elements(), addFloatsOutput.elements());
     POTHOS_TEST_CLOSEA(
-        threeBuffersCOutput.as<const float*>(),
-        threeBuffersLuaOutput.as<const float*>(),
+        expectedAddFloatsOutput.as<const float*>(),
+        addFloatsOutput.as<const float*>(),
         epsilon,
-        threeBuffersCOutput.elements());
+        addFloatsOutput.elements());
 
-    POTHOS_TEST_GT(complexConjugateCOutput.elements(), 0ULL);
-    POTHOS_TEST_EQUAL(complexConjugateCOutput.dtype, complexConjugateLuaOutput.dtype);
-    POTHOS_TEST_EQUAL(complexConjugateCOutput.elements(), complexConjugateLuaOutput.elements());
-    for(size_t i = 0; i < complexConjugateCOutput.elements(); ++i)
-    {
-        POTHOS_TEST_CLOSE(
-            complexConjugateCOutput.as<const std::complex<float>*>()[i].real(),
-            complexConjugateLuaOutput.as<const std::complex<float>*>()[i].real(),
-            epsilon);
-    }
-    for(size_t i = 0; i < complexConjugateCOutput.elements(); ++i)
-    {
-        POTHOS_TEST_CLOSE(
-            complexConjugateCOutput.as<const std::complex<float>*>()[i].imag(),
-            complexConjugateLuaOutput.as<const std::complex<float>*>()[i].imag(),
-            epsilon);
-    }
+    auto complexConjugateOutput = complexConjugateSink.call<Pothos::BufferChunk>("getBuffer");
+    POTHOS_TEST_EQUAL(expectedComplexConjugateOutput.dtype, complexConjugateOutput.dtype);
+    POTHOS_TEST_EQUAL(expectedComplexConjugateOutput.elements(), complexConjugateOutput.elements());
+    POTHOS_TEST_CLOSEA(
+        expectedComplexConjugateOutput.as<const float*>(),
+        complexConjugateOutput.as<const float*>(),
+        epsilon,
+        (complexConjugateOutput.elements() * 2));
 }
 
 POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_blocks_from_file)
