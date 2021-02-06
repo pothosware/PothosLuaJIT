@@ -12,6 +12,7 @@
 #include <Poco/Format.h>
 #include <Poco/NumberFormatter.h>
 #include <Poco/Path.h>
+#include <Poco/Random.h>
 #include <Poco/TemporaryFile.h>
 #include <Poco/Timestamp.h>
 
@@ -25,6 +26,23 @@
 //
 // Utility functions
 //
+
+static constexpr size_t numElements = 2048;
+
+static Pothos::BufferChunk getRandomInputs()
+{
+    static Poco::Random rng;
+
+    Pothos::BufferChunk output("float32", numElements);
+    for(size_t elem = 0; elem < numElements; ++elem)
+    {
+        // nextFloat() returns a value in the range [0,1]. This
+        // places the output in the desired range of [-5,5].
+        output.as<float*>()[elem] = (rng.nextFloat() * 10.0f) - 5.0f;
+    }
+
+    return output;
+}
 
 static void getCAndLuaPothosBlocks(
     const std::string& luaSource,
@@ -472,20 +490,33 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_blocks_with_preloaded_library)
     POTHOS_TEST_CHECKPOINT();
 
     //
-    // Blocks
+    // Generate inputs and expected outputs
     //
 
     constexpr size_t numSources = 2;
-    std::vector<Pothos::Proxy> sources;
+    std::vector<Pothos::BufferChunk> inputs(numSources);
     for(size_t i = 0; i < numSources; ++i)
     {
-        nlohmann::json testPlan;
-        testPlan["enableBuffers"] = true;
-        testPlan["minValue"] = -5;
-        testPlan["maxValue"] = 5;
+        inputs[i] = getRandomInputs();
+    }
 
-        sources.emplace_back(Pothos::BlockRegistry::make("/blocks/feeder_source", "float32"));
-        sources.back().call("feedTestPlan", testPlan.dump());
+    Pothos::BufferChunk expectedOutput("float32", numElements);
+    for(size_t elem = 0; elem < numElements; ++elem)
+    {
+        expectedOutput.as<float*>()[elem] = std::pow(
+            std::abs(inputs[0].as<const float*>()[elem]),
+            (inputs[1].as<const float*>()[elem] / 2.0f));
+    }
+
+    //
+    // Blocks
+    //
+
+    std::vector<Pothos::Proxy> sources(numSources);
+    for(size_t i = 0; i < numSources; ++i)
+    {
+        sources[i] = Pothos::BlockRegistry::make("/blocks/feeder_source", "float32");
+        sources[i].call("feedBuffer", inputs[i]);
     }
 
     auto luajitBlock = Pothos::BlockRegistry::make(
@@ -505,6 +536,7 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_blocks_with_preloaded_library)
     //
     // Test topology
     //
+
     {
         Pothos::Topology topology;
         topology.connect(sources[0], 0, luajitBlock, 0);
@@ -515,6 +547,18 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_blocks_with_preloaded_library)
         POTHOS_TEST_TRUE(topology.waitInactive(0.01));
     }
 
+    //
+    // Test against expected output
+    //
+
+    constexpr float epsilon = 1e-6f;
+
     auto output = sink.call<Pothos::BufferChunk>("getBuffer");
-    POTHOS_TEST_GT(output.elements(), 0);
+    POTHOS_TEST_EQUAL(expectedOutput.dtype, output.dtype);
+    POTHOS_TEST_EQUAL(expectedOutput.elements(), output.elements());
+    POTHOS_TEST_CLOSEA(
+        expectedOutput.as<const float*>(),
+        output.as<const float*>(),
+        epsilon,
+        numElements);
 }
