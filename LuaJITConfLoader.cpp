@@ -28,6 +28,7 @@ struct FactoryArgs
     std::string functionName;
     std::vector<std::string> inputTypes;
     std::vector<std::string> outputTypes;
+    std::vector<std::string> preloadedLibraries;
 };
 
 static Pothos::Object opaqueLuaJITBlockFactory(
@@ -61,7 +62,11 @@ static Pothos::Object opaqueLuaJITBlockFactory(
         factoryArgs.sourceFilepath,
         factoryArgs.functionName);
 
-    // TODO: set preloaded libraries
+    if(!factoryArgs.preloadedLibraries.empty())
+    {
+        // Pothos::Object::ref() doesn't allow pointer casts.
+        dynamic_cast<LuaJITBlock*>(luajitBlock.ref<Pothos::Block*>())->setPreloadedLibraries(factoryArgs.preloadedLibraries);
+    }
 
     return luajitBlock;
 }
@@ -144,6 +149,12 @@ static std::vector<Pothos::PluginPath> LuaJITConfLoader(const std::map<std::stri
 
     }
     else docSourceFilepath = factoryArgs.sourceFilepath;
+
+    auto preloadedLibsIter = config.find("preloaded_libraries");
+    if(preloadedLibsIter != config.end())
+    {
+        factoryArgs.preloadedLibraries = stringTokenizerToVector(Poco::StringTokenizer(preloadedLibsIter->second, tokSep, tokOptions));
+    }
 
     Pothos::Util::BlockDescriptionParser parser;
     parser.feedFilePath(docSourceFilepath);
