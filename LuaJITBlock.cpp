@@ -236,12 +236,23 @@ void LuaJITBlock::work()
  * |default ""
  * |widget FileEntry(mode=open)
  *
+ * |param preloadedLibraries[Preloaded Libraries]
+ * A list of dynamic libraries to load before executing the provided LuaJIT
+ * code.
+ *
+ * Loading these libraries allows C functions exported by the libraries 
+ * to be declared in <tt>ffi.cdef[[]]</tt> and used in the provided LuaJIT
+ * code.
+ * |default []
+ * |widget LineEdit()
+ *
  * |param functionName[Function] The name of a function in the given source.
  * |default ""
  * |widget StringEntry()
  *
  * |factory /blocks/luajit_block(inputTypes,outputTypes)
  * |setter setSource(source, functionName)
+ * |setter setPreloadedLibraries(preloadedLibraries)
  */
 static Pothos::BlockRegistry registerLuaJITBlock(
     "/blocks/luajit_block",

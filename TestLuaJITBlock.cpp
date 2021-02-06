@@ -341,10 +341,10 @@ POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_blocks_from_script)
 }
 
 //
-// Testing with preloaded library
+// Testing with preloaded libraries generated at test time
 //
 
-POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_blocks_with_preloaded_library)
+POTHOS_TEST_BLOCK("/luajit/tests", test_luajit_blocks_with_preloaded_libraries)
 {
     const std::vector<std::string> librarySources =
     {

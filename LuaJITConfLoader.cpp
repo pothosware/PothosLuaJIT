@@ -45,11 +45,11 @@ static Pothos::Object opaqueLuaJITBlockFactory(
     Pothos::ObjectVector argsVector(args, args+numArgs);
     argsVector.emplace_back(factoryArgs.inputTypes);
     argsVector.emplace_back(factoryArgs.outputTypes);
-    argsVector.emplace_back(false); // Disallow setting the source after construction
+    argsVector.emplace_back(false); // Disallow changing parameters after construction
 
     // This backdoor allows us to create the block without allowing the
-    // source to be set post-construction, then use our access to the
-    // block type to call it via the function itself.
+    // source and preloaded libraries to be set post-construction, then
+    // use our access to the block type to call it via the function itself.
     auto callable = blockPlugin.getObject().extract<Pothos::Callable>();
     callable.unbind(2);
 
