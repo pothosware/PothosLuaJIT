@@ -23,6 +23,40 @@
 #include <vector>
 
 //
+// Utility functions
+//
+
+static void getCAndLuaPothosBlocks(
+    const std::string& luaSource,
+    const std::string& cBlockFunc,
+    const std::string& luaBlockFunc,
+    const std::vector<std::string>& inputTypes,
+    const std::vector<std::string>& outputTypes,
+    Pothos::Proxy* cFuncBlockOut,
+    Pothos::Proxy* luaFuncBlockOut)
+{
+    (*cFuncBlockOut) = Pothos::BlockRegistry::make(
+                           "/blocks/luajit_block",
+                           inputTypes,
+                           outputTypes);
+    cFuncBlockOut->call(
+        "setSource",
+        luaSource,
+        cBlockFunc);
+    POTHOS_TEST_CHECKPOINT();
+
+    (*luaFuncBlockOut) = Pothos::BlockRegistry::make(
+                             "/blocks/luajit_block",
+                             inputTypes,
+                             outputTypes);
+    luaFuncBlockOut->call(
+        "setSource",
+        luaSource,
+        luaBlockFunc);
+    POTHOS_TEST_CHECKPOINT();
+}
+
+//
 // LuaJIT test functions (must be exported for LuaJIT to use)
 //
 
@@ -221,65 +255,38 @@ static void testLuaJITBlocks(const std::string& luaSource)
     // LuaJIT blocks
     //
 
-    auto addThreeFloatBuffersC = Pothos::BlockRegistry::make(
-                                    "/blocks/luajit_block",
-                                    std::vector<std::string>{"float32", "float32", "float32"},
-                                    std::vector<std::string>{"float32"});
-    addThreeFloatBuffersC.call(
-        "setSource",
+    Pothos::Proxy addThreeFloatBuffersC;
+    Pothos::Proxy addThreeFloatBuffersLua;
+    getCAndLuaPothosBlocks(
         luaSource,
-        "addFloatsC");
-    POTHOS_TEST_CHECKPOINT();
+        "addFloatsC",
+        "addFloatsLua",
+        std::vector<std::string>{"float32", "float32", "float32"},
+        std::vector<std::string>{"float32"},
+        &addThreeFloatBuffersC,
+        &addThreeFloatBuffersLua);
 
-    auto addThreeFloatBuffersLua = Pothos::BlockRegistry::make(
-                                       "/blocks/luajit_block",
-                                       std::vector<std::string>{"float32", "float32", "float32"},
-                                       std::vector<std::string>{"float32"});
-    addThreeFloatBuffersLua.call(
-        "setSource",
+    Pothos::Proxy combineComplexC;
+    Pothos::Proxy combineComplexLua;
+    getCAndLuaPothosBlocks(
         luaSource,
-        "addFloatsLua");
-    POTHOS_TEST_CHECKPOINT();
+        "combineComplexC",
+        "combineComplexLua",
+        std::vector<std::string>{"float32", "float32"},
+        std::vector<std::string>{"complex_float32"},
+        &combineComplexC,
+        &combineComplexLua);
 
-    auto combineComplexC = Pothos::BlockRegistry::make(
-                               "/blocks/luajit_block",
-                               std::vector<std::string>{"float32", "float32"},
-                               std::vector<std::string>{"complex_float32"});
-    combineComplexC.call(
-        "setSource",
+    Pothos::Proxy complexConjugateC;
+    Pothos::Proxy complexConjugateLua;
+    getCAndLuaPothosBlocks(
         luaSource,
-        "combineComplexC");
-    POTHOS_TEST_CHECKPOINT();
-
-    auto combineComplexLua = Pothos::BlockRegistry::make(
-                                 "/blocks/luajit_block",
-                                 std::vector<std::string>{"float32", "float32"},
-                                 std::vector<std::string>{"complex_float32"});
-    combineComplexLua.call(
-        "setSource",
-        luaSource,
-        "combineComplexLua");
-    POTHOS_TEST_CHECKPOINT();
-
-    auto complexConjugateC = Pothos::BlockRegistry::make(
-                                 "/blocks/luajit_block",
-                                 std::vector<std::string>{"complex_float32"},
-                                 std::vector<std::string>{"complex_float32"});
-    complexConjugateC.call(
-        "setSource",
-        luaSource,
-        "complexConjugateC");
-    POTHOS_TEST_CHECKPOINT();
-
-    auto complexConjugateLua = Pothos::BlockRegistry::make(
-                                   "/blocks/luajit_block",
-                                   std::vector<std::string>{"complex_float32"},
-                                   std::vector<std::string>{"complex_float32"});
-    complexConjugateLua.call(
-        "setSource",
-        luaSource,
-        "complexConjugateLua");
-    POTHOS_TEST_CHECKPOINT();
+        "complexConjugateC",
+        "complexConjugateLua",
+        std::vector<std::string>{"complex_float32"},
+        std::vector<std::string>{"complex_float32"},
+        &complexConjugateC,
+        &complexConjugateLua);
 
     //
     // Sinks
