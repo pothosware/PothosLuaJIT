@@ -10,10 +10,6 @@ the optimized LuaJIT code to operate directly on the Pothos-allocated buffers.
 This component also adds a configuration loader that allows LuaJIT blocks to be
 loaded on Pothos initialization. See the **examples** directory for instructions.
 
-## Documentation
-
-* https://github.com/pothosware/PothosLuaJIT/wiki
-
 ## Dependencies
 
 * C++17 compiler
